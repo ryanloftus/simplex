@@ -23,82 +23,83 @@ def nonpositive(v):
     return True
 
 def certificate_of_optimality(A, c, B):
-    return np.matmul(np.transpose(A[:][B]), c[B])
+    return np.matmul(np.transpose(A[:,B]), c[B])
+
+def choose_i_to_enter_basis(c):
+    """
+    Select k that should enter the basis in the next iteration by Bland's Rule
+    """
+    for i in range(len(c)):
+        if c[i] > 0:
+            return i
+    return None
+
+def choose_i_to_leave_basis(col, b):
+    """
+    Select k that should leave the basis in the next iteration by Bland's Rule
+    """
+    t = min([b[i] / col[i] for i in range(len(b)) if col[i] > 0])
+    for i in range(len(b)):
+        if col[i] > 0 and b[i] / col[i] == t:
+            return i
 
 def canonical_form(A, b, c, z, B):
-    AB = [[A[i][j] for j in range(len(A[i])) if j in B] for i in range(len(A))]
+    AB = A[:,B]
     AB_inv = np.linalg.inv(AB)
     A_tilde = np.matmul(AB_inv, A)
     b_tilde = np.matmul(AB_inv, b)
     z_tilde = np.dot(c[B], b_tilde) + z
     c_tilde = c - np.matmul(np.transpose(A_tilde), c[B])
-    return A_tilde, b_tilde, c_tilde, z_tilde
-    
-def phase_one_simplex(A, b, c, z, B):
-    """
-    Phase 1: find a basis with non-negative objective value or,
-    return the certificate of optimality if there is no such basis
-    """
+    bfs = np.zeros_like(c)
+    bfs[B] = b_tilde
+    return A_tilde, b_tilde, c_tilde, z_tilde, bfs
 
-    canonical_form(A, b, c, z, B)
+def simplex(A, b, c, z, B):
+    while True:
+        A, b, c, z, bfs = canonical_form(A, b, c, z, B)
 
-    return (INFEASIBLE, [], [], 0, B)
-
-def phase_two_simplex(A, b, c, z, B):
-    # convert LP to canonical form w.r.t. B
-    A, b, c, z = canonical_form(A, b, c, z, B)
-    
-    # find the basic feasible solution
-    x = [0] * len(c)
-    for i in range(len(B)):
-        x[B[i]] = b[i]
-
-    # check for optimal solution
-    if nonpositive(c):
-        return {"outcome": FEASIBLE_BOUNDED, "optimal_bfs": x, "optimal_basis": B, "obj_val": z}
-    
-    # find which k enters the basis with Bland's Rule
-    k = 0
-    for i in range(len(c)):
-        if c[i] > 0:
-            k = i
-            break
-    if nonpositive(A[:][k]):
-        return UNBOUNDED, x # TODO: certificate d
-
-    # find which i leaves the basis with Bland's Rule
-    t = min([b[i] / A[i][k] for i in range(len(b))])
-    for i in range(len(b)):
-        if b[i] / A[i][k] == t:
-            B[i] = k
-            break
-
-    # iterate again with new basis
-    return phase_two_simplex(A, b, c, z, B)
+        # check for optimal solution
+        if nonpositive(c):
+            return {"outcome": FEASIBLE_BOUNDED, "optimal_bfs": bfs, "optimal_basis": B, "obj_val": z}
+        
+        # update the basis and check for unboundedness
+        k = choose_i_to_enter_basis(c)
+        if nonpositive(A[:,k]):
+            return {"outcome": UNBOUNDED, "certificate_x": bfs, "certificate_d": np.zeros_like(bfs)} # TODO: certificate d
+        B[choose_i_to_leave_basis(A[:,k], b)] = k
 
 def auxillary_lp(A, b):
     dA = []
     for r in range(len(A)):
         identity_row = [0] * len(A)
         identity_row[r] = 1
-        dA.append([a for a in A[r]] + identity_row)
-    dc = [0] * len(A[0]) + [-1] * len(A)
-    db = [bi for bi in b]
+        dA.append([(a if b[r] >= 0 else -a) for a in A[r]] + identity_row)
+    dc = np.array([0] * len(A[0]) + [-1] * len(A))
+    db = np.abs(np.copy(b))
     dz = 0
-    B = [len(A[0]) + i for i in range(len(A))]
-    return dA, db, dc, dz, B
+    B = np.array([len(A[0]) + i for i in range(len(A))])
+    return np.array(dA), db, dc, dz, B
 
 def two_phase_simplex(lp):
-    c, z, A, b = lp['c'], lp['z'], lp['A'], lp['b']
+    c, z, A, b = np.array(lp['c']), lp['z'], np.array(lp['A']), np.array(lp['b'])
 
     # First phase - find a basis or a certificate of infeasibility
     auxA, auxb, auxc, auxz, auxB = auxillary_lp(A, b)
-    B, obj_val = phase_one_simplex(auxA, auxb, auxc, auxz, auxB)
-    if obj_val < 0:
-        print("Certificate of infeasibility:", certificate_of_optimality(auxA, auxc, B))
+    res = simplex(auxA, auxb, auxc, auxz, auxB)
+    if res["obj_val"] < 0:
+        print("Certificate of infeasibility:", certificate_of_optimality(auxA, auxc, res["optimal_basis"]))
+        return
+    B = res["optimal_basis"]
 
     # Second phase - find an optimal solution and certificate of optimality or a certificate of unboundedness
-    res = phase_two_simplex(A, b, c, z, B)
+    res = simplex(A, b, c, z, B)
+    if res["outcome"] == UNBOUNDED:
+        print("Certificate of unboundedness:", res["certificate_d"])
+    elif res["outcome"] == FEASIBLE_BOUNDED:
+        print("Optimal solution:", res["optimal_bfs"])
+        print("Optimal basis:", res["optimal_basis"])
+        print("Optimal value:", res["obj_val"])
+        print("Certificate of optimality:", certificate_of_optimality(A, c, res["optimal_basis"]))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
