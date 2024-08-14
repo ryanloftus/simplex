@@ -25,6 +25,13 @@ def nonpositive(v):
 def certificate_of_optimality(A, c, B):
     return np.matmul(np.transpose(A[:,B]), c[B])
 
+def certificate_of_unboundedness(A, B, k):
+    d = np.zeros(len(A[0]))
+    d[k] = 1
+    for i in range(len(B)):
+        d[B[i]] = -A[i][k]
+    return d
+
 def choose_i_to_enter_basis(c):
     """
     Select k that should enter the basis in the next iteration by Bland's Rule
@@ -65,8 +72,9 @@ def simplex(A, b, c, z, B):
         # update the basis and check for unboundedness
         k = choose_i_to_enter_basis(c)
         if nonpositive(A[:,k]):
-            return {"outcome": UNBOUNDED, "certificate_x": bfs, "certificate_d": np.zeros_like(bfs)} # TODO: certificate d
+            return {"outcome": UNBOUNDED, "certificate_x": bfs, "certificate_d": certificate_of_unboundedness(A, B, k)}
         B[choose_i_to_leave_basis(A[:,k], b)] = k
+        B.sort()
 
 def auxillary_lp(A, b):
     dA = []
