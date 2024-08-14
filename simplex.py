@@ -87,19 +87,16 @@ def two_phase_simplex(lp):
     auxA, auxb, auxc, auxz, auxB = auxillary_lp(A, b)
     res = simplex(auxA, auxb, auxc, auxz, auxB)
     if res["obj_val"] < 0:
-        print("Certificate of infeasibility:", certificate_of_optimality(auxA, auxc, res["optimal_basis"]))
-        return
+        res["outcome"] = INFEASIBLE
+        res["certificate"] = certificate_of_optimality(auxA, auxc, res["optimal_basis"])
+        return res
     B = res["optimal_basis"]
 
     # Second phase - find an optimal solution and certificate of optimality or a certificate of unboundedness
     res = simplex(A, b, c, z, B)
-    if res["outcome"] == UNBOUNDED:
-        print("Certificate of unboundedness:", res["certificate_d"])
-    elif res["outcome"] == FEASIBLE_BOUNDED:
-        print("Optimal solution:", res["optimal_bfs"])
-        print("Optimal basis:", res["optimal_basis"])
-        print("Optimal value:", res["obj_val"])
-        print("Certificate of optimality:", certificate_of_optimality(A, c, res["optimal_basis"]))
+    if res["outcome"] == FEASIBLE_BOUNDED:
+        res["certificate"] = certificate_of_optimality(A, c, res["optimal_basis"])
+    return res
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -111,4 +108,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     LP = read_lp_file(args.input_file)
-    two_phase_simplex(LP) 
+    res = two_phase_simplex(LP)
+    if res["outcome"] == INFEASIBLE:
+        print("Certificate of infeasibility:", res["certificate"])
+    elif res["outcome"] == UNBOUNDED:
+        print("Certificate of unboundedness:")
+        print("x = {x}".format(x=res["certificate_x"]))
+        print("d = {d}".format(d=res["certificate_d"]))
+    elif res["outcome"] == FEASIBLE_BOUNDED:
+        print("Optimal solution:", res["optimal_bfs"])
+        print("Optimal basis:", res["optimal_basis"])
+        print("Optimal value:", res["obj_val"])
+        print("Certificate of optimality:", res["certificate"])
