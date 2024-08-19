@@ -1,6 +1,7 @@
 import argparse
 import json
 import numpy as np
+import sef
 
 FEASIBLE_BOUNDED = 0
 UNBOUNDED = 1
@@ -95,6 +96,8 @@ def auxillary_lp(A, b):
 
 def two_phase_simplex(lp):
     c, z, A, b = np.array(lp['c']), lp['z'], np.array(lp['A']), np.array(lp['b'])
+    if "constraint_types" in lp:
+        A, c = sef.to_equality_form(A, c, lp["constraint_types"])
 
     # First phase - find a basis or a certificate of infeasibility
     auxA, auxb, auxc, auxz, auxB = auxillary_lp(A, b)

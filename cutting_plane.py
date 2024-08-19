@@ -22,6 +22,8 @@ def find_cutting_plane(A, b):
 def solve_ip(ip):
     c, z, A, b = np.array(ip['c']), ip['z'], np.array(ip['A']), np.array(ip['b'])
     num_int = len(c)
+    if "constraint_types" in ip:
+        A, c = sef.to_equality_form(A, c, ip["constraint_types"])
     while True:
         # First phase - find a basis or a certificate of infeasibility
         auxA, auxb, auxc, auxz, auxB = simplex.auxillary_lp(A, b)

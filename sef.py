@@ -15,3 +15,9 @@ def to_equality_form(A, c, constraint_types):
         identity_val = -1 if constraint_types[row] == ">=" else 1
         A, c = add_slack_variable(A, c, row, identity_val)
     return A, c
+
+def sef(A, c, constraint_types):
+    """
+    Converts the given LP to Standard Equality Form.
+    """
+    
