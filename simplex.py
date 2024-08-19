@@ -8,7 +8,12 @@ INFEASIBLE = 2
 
 def read_lp_file(filename: str):
     with open(filename) as f:
-        return json.loads(f.read())
+        lp = json.loads(f.read())
+    lp["A"] = np.array(lp["A"], dtype=float)
+    lp["c"] = np.array(lp["c"], dtype=float)
+    lp["b"] = np.array(lp["b"], dtype=float)
+    lp["z"] = float(lp["z"])
+    return lp
     
 def nonnegative(v):
     for x in v:
@@ -85,7 +90,7 @@ def auxillary_lp(A, b):
     dc = np.array([0] * len(A[0]) + [-1] * len(A))
     db = np.abs(np.copy(b))
     dz = 0
-    B = np.array([len(A[0]) + i for i in range(len(A))])
+    B = np.array([len(A[0]) + i for i in range(len(A))], dtype=int)
     return np.array(dA), db, dc, dz, B
 
 def two_phase_simplex(lp):
